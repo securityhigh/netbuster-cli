@@ -10,6 +10,8 @@ The program did not bring anything new to the attack process, with the exception
 
 ##### Run
 ```
-> sudo python3 localNetworkDown.py [interface*] [router_ip*]
+> ./localNetworkDown.py [interface*] [router_ip*]
+# AND, ATTACK ONE VICTIM
+> ./localNetworkDown.py [interface*] [router_ip*] [victim_ip] 
 ```
 You can find out the required interface through a ifconfig or iwconfig. You can find out the IP address of the gateway through **nmap**.
