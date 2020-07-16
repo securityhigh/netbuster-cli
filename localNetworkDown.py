@@ -122,7 +122,7 @@ def scanner(ip):
 	print("")
 	for element in victims:
 		addr = element["addr"]
-		if addr != router_ip:
+		if addr != gateway_ip:
 			result.append(addr)
 			print(" -- " + addr)
 
