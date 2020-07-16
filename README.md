@@ -34,5 +34,6 @@ The program cannot be detected by **arpwatch** and similar software that control
 
 **-t** or **--target** - file with ip addresses, so as not to kill the entire subnet.
 
+**-a** or **--attack-gateway** - Flag, without value. Increases attack efficiency, is not resistant to arpwatch from the GATEWAY side.
 
 
