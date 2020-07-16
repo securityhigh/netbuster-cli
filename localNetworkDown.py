@@ -77,7 +77,7 @@ def attack(ips):
 def main():
 	if interface in get_interfaces():
 		mac = get_mac(interface)
-		s.bind((interface. socket.htons(0x0800)))
+		s.bind((interface, socket.htons(0x0800)))
 
 	else:
 		print(f"Interface {interface} not found.")
@@ -142,7 +142,7 @@ def scanner(ip):
 
 def get_mac(interface):
     mac_address = open(f"/sys/class/net/{interface}/address").readline()
-    print(mac_address)
+    return mac_address
 
 
 def get_interfaces():
