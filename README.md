@@ -6,6 +6,8 @@ The program is adapted only for work in Linux environment.
 
 It works on the basis of ARP spoofing, done without the use of third-party programs.
 
+The program cannot be detected by **arpwatch** and similar software that controls the change of the ATP table on the GATEWAY side.
+
 #### Install
 ```
 > git clone https://github.com/eBind/localNetworkDown
