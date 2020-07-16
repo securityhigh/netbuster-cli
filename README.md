@@ -25,7 +25,9 @@ It works on the basis of ARP spoofing, done without the use of third-party progr
 ```
 
 **-i** or **--interface** [required] - your network interface.
+
 **-g** or **--gateway** [required] - the gateway to which you are connected via the interface.
+
 **-t** or **--target** - file with ip addresses, so as not to kill the entire subnet.
 
 
