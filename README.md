@@ -1,7 +1,9 @@
 # localNetworkDown
 #### Description
 The program requires root privileges.
+
 The program is adapted only for work in Linux environment.
+
 It works on the basis of ARP spoofing, done without the use of third-party programs.
 
 #### Install
