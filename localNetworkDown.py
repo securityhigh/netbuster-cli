@@ -141,7 +141,7 @@ def scanner(ip):
 
 
 def get_mac(interface):
-    mac_address = open("/sys/class/net/{interface}/address").readline()
+    mac_address = open(f"/sys/class/net/{interface}/address").readline()
     print(mac_address)
 
 
