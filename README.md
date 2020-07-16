@@ -1,17 +1,32 @@
 # localNetworkDown
-##### Install
+#### Description
+The program requires root privileges.
+The program is adapted only for work in Linux environment.
+It works on the basis of ARP spoofing, done without the use of third-party programs.
+
+#### Install
 ```
 > git clone https://github.com/eBind/localNetworkDown
 > cd localNetworkDown
-> sudo chmod +x install.sh
-> sudo bash ./install.sh
+> pip install -r requirements.txt
 ```
-The program did not bring anything new to the attack process, with the exception of optimizing the work with many networks with arpspoof (dsniff package). And need root.
 
-##### Run
+#### Run
 ```
-> ./localNetworkDown.py [interface*] [router_ip*]
-> # OR
-> ./localNetworkDown.py [interface*] [router_ip*] [victim_ip]
+// For help.
+> python3 localNetworkDown.py --help
+
+// Disconnect the entire local network from the Internet.
+// With scanning.
+> python3 localNetworkDown.py -i wlan0 -g 192.168.1.1
+
+// Disable individual users.
+> python3 localNetworkDown.py -i wlan0 -g 192.168.1.1 -t target.txt
 ```
-You can find out the required interface through a ifconfig or iwconfig. You can find out the IP address of the gateway through **nmap**.
+
+**-i** or **--interface** [required] - your network interface.
+**-g** or **--gateway** [required] - the gateway to which you are connected via the interface.
+**-t** or **--target** - file with ip addresses, so as not to kill the entire subnet.
+
+
+

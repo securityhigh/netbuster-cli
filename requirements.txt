@@ -1,0 +1,2 @@
+netifaces
+python3-nmap

