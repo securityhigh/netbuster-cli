@@ -47,6 +47,6 @@ The program cannot be detected by **arpwatch** and similar software that control
 
 #### Run
 ```
-> netbuster [*arguments]
+> sudo netbuster [*arguments]
 ```
 
