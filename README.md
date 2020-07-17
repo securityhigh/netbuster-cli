@@ -1,4 +1,4 @@
-# localNetworkDown
+# netbuster
 #### Description
 The program requires root privileges.
 
@@ -10,22 +10,22 @@ The program cannot be detected by **arpwatch** and similar software that control
 
 #### Install
 ```
-> git clone https://github.com/eBind/localNetworkDown
-> cd localNetworkDown
+> git clone https://github.com/secwayz/netbuster
+> cd netbuster
 > pip install -r requirements.txt
 ```
 
 #### Run
 ```
 // For help.
-> python3 localNetworkDown.py --help
+> python3 netbuster.py --help
 
 // Disconnect the entire local network from the Internet.
 // With scanning.
-> python3 localNetworkDown.py -i wlan0 -g 192.168.1.1
+> python3 netbuster.py -i wlan0 -g 192.168.1.1
 
 // Disable individual users.
-> python3 localNetworkDown.py -i wlan0 -g 192.168.1.1 -t target.txt
+> python3 netbuster.py -i wlan0 -g 192.168.1.1 -t target.txt
 ```
 
 **-i** or **--interface** [required] - your network interface.
