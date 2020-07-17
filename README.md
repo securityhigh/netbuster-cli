@@ -37,3 +37,16 @@ The program cannot be detected by **arpwatch** and similar software that control
 **-a** or **--attack-gateway** - flag, without value; increases attack efficiency, is not resistant to arpwatch from the GATEWAY side.
 
 
+
+
+## Install on the system
+```
+> sudo chmod +x ./install.sh
+> sudo ./install.sh
+```
+
+#### Run
+```
+> netbuster [*arguments]
+```
+
