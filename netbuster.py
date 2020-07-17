@@ -140,8 +140,8 @@ def main():
 
 def arguments():
 	parser = argparse.ArgumentParser()
-	parser.add_argument('-i', '--interface', dest="interface", help="Set a interface")
-	parser.add_argument('-g', '--gateway', dest="gateway", help="Set a gateway")
+	parser.add_argument('-i', '--interface', required=True, dest="interface", help="Set a interface")
+	parser.add_argument('-g', '--gateway', required=True, dest="gateway", help="Set a gateway")
 	parser.add_argument('-t', '--target', dest="target", help="Set a file with local IPs")
 	parser.add_argument('-a', '--attack-gateway', action="store_true", dest="attackgateway", help="Attack on the gateway, more vulnerable to arpwatch. Higher efficiency.")
 
