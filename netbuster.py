@@ -72,6 +72,11 @@ class attackThread(threading.Thread):
 
 
 def attack(ips):
+	"""
+	Initial attack threads
+	
+	:ips: array, ips for attack
+	"""
 	global threads, mac, gateway_ip, hard
 
 	for victim_ip in ips:
@@ -85,6 +90,9 @@ def attack(ips):
 
 
 def main():
+	"""
+	Main method
+	"""
 	global interface, hard, mac, s, victims, gateway_ip
 	args = arguments()
 
@@ -133,6 +141,11 @@ def main():
 
 
 def arguments():
+	"""
+	argparse initialize
+	
+	:return: arguments on command line
+	"""
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-i', '--interface', required=True, dest="interface", help="Set a interface")
 	parser.add_argument('-g', '--gateway', required=True, dest="gateway", help="Set a gateway")
@@ -145,10 +158,19 @@ def arguments():
 # Network methods
 
 def disable_ip_forward():
+	"""
+	Disable IP-forward on Linux machine
+	"""
 	os.system("sudo echo 0 > /proc/sys/net/ipv4/ip_forward")
 
 
 def scanner(ip):
+	"""
+	nmap -sn <ip>
+	
+	:ip: ip-mask for scan
+	:return: array ips
+	"""
 	global victims, interface
 
 	nmap = nmap3.NmapHostDiscovery()
@@ -177,16 +199,34 @@ def scanner(ip):
 
 
 def get_mac(interface):
+	"""
+	Get MAC-address device
+	
+	:interface: your network interface
+	:return: MAC
+	"""
 	iface = netifaces.ifaddresses(interface)[netifaces.AF_LINK]
 	return iface[0]["addr"]
 
 
 def get_local_ip(interface):
+	"""
+	Get my local IP-address
+	
+	:interface: your network interface
+	:return: IP
+	"""
 	iface = netifaces.ifaddresses(interface).get(netifaces.AF_INET)
 	return iface[0]["addr"]
 
 
 def check_ip(ip):
+	"""
+	Validate IP-address
+	
+	:ip: target IP-address
+	:return: boolean
+	"""
 	try:
 		socket.inet_aton(ip)
 	except socket.error:
