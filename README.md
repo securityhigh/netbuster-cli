@@ -10,7 +10,7 @@ The program cannot be detected by **arpwatch** and similar software that control
 
 #### Install
 ```
-> git clone https://github.com/secwayz/netbuster
+> git clone https://github.com/securityhigh/netbuster
 > cd netbuster
 > pip install -r requirements.txt
 ```
