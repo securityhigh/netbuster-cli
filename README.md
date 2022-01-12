@@ -2,13 +2,13 @@
 #### Description
 The program requires root privileges.
 
-The program is adapted for work in Linux environment. (Windows, Termux not tested)
+The program is adapted for work only in Linux environment.
 
 It works on the basis of ARP spoofing, done without the use of third-party programs.
 
 #### Install
 ```
-> git clone https://github.com/securityhigh/netbuster
+> git clone https://github.com/securityhigh/netbuster-cli
 > cd netbuster
 > pip install -r requirements.txt
 ```

