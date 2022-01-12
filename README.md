@@ -16,20 +16,21 @@ It works on the basis of ARP spoofing, done without the use of third-party progr
 #### Run
 ```
 // For help.
-> python3 netbuster.py --help
+> sudo python3 netbuster.py --help
 
 // Disconnect the entire local network from the Internet.
 // Run until all devices are detected.
-> python3 netbuster.py -i wlan0
+> sudo python3 netbuster.py -i wlan0
 
 // Disable individual users.
-> python3 netbuster.py -i wlan0 -t target.txt
+> sudo python3 netbuster.py -i wlan0 -t target.txt
 ```
 
-**-i** or **--interface** [required] - your network interface.
+**-i** or **--interface** - your network interface.
 
 **-t** or **--target** - file with ip addresses, so as not to kill the entire subnet.
 
+**-p** or **--ping** - set custom delay for ping scanner. (default: 2s)
 
 
 ## Install on the system
